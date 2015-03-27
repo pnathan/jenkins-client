@@ -30,7 +30,7 @@ import java.util.Map;
 /**
  * The main starting point for interacting with a Jenkins server.
  */
-public class JenkinsServer {
+public class JenkinsServer implements IJenkinsServer {
 
     private final JenkinsHttpClient client;
 
@@ -68,6 +68,7 @@ public class JenkinsServer {
      *
      * @return true if Jenkins is up and running, false otherwise
      */
+    @Override
     public boolean isRunning() {
         try {
             client.get("/");
@@ -83,6 +84,7 @@ public class JenkinsServer {
      * @return list of defined jobs (summary level, for details @see Job#details
      * @throws IOException
      */
+    @Override
     public Map<String, Job> getJobs() throws IOException {
         List<Job> jobs = client.get("/", MainView.class).getJobs();
         return Maps.uniqueIndex(jobs, new Function<Job, String>() {
@@ -101,6 +103,7 @@ public class JenkinsServer {
      * @return the view object
      * @throws IOException
      */
+    @Override
     public View getView(String name) throws IOException {
         return client.get("/view/" + encode(name) + "/", View.class);
     }
@@ -111,6 +114,7 @@ public class JenkinsServer {
      * @return list of defined jobs (view level, for details @see Job#details
      * @throws IOException
      */
+    @Override
     public Map<String, Job> getJobs(String view) throws IOException {
         List<Job> jobs = client.get("/view/" + encode(view) + "/", View.class).getJobs();
         return Maps.uniqueIndex(jobs, new Function<Job, String>() {
@@ -128,6 +132,7 @@ public class JenkinsServer {
      * @return A single Job, null if not present
      * @throws IOException
      */
+    @Override
     public JobWithDetails getJob(String jobName) throws IOException {
         try {
             JobWithDetails job = client.get("/job/" + encode(jobName), JobWithDetails.class);
@@ -143,6 +148,7 @@ public class JenkinsServer {
 
     }
 
+    @Override
     public MavenJobWithDetails getMavenJob(String jobName) throws IOException {
         try {
             MavenJobWithDetails job = client.get("/job/" + encode(jobName), MavenJobWithDetails.class);
@@ -163,10 +169,12 @@ public class JenkinsServer {
      * @return the new job object
      * @throws IOException
      */
+    @Override
     public void createJob(String jobName, String jobXml) throws IOException {
         client.post_xml("/createItem?name=" + encode(jobName), jobXml);
     }
     
+    @Override
     public void createJob(String jobName, String jobXml, Boolean crumbFlag) throws IOException {
         client.post_xml("/createItem?name=" + encode(jobName), jobXml, crumbFlag);
     }
@@ -177,6 +185,7 @@ public class JenkinsServer {
      * @return the new job object
      * @throws IOException
      */
+    @Override
     public String getJobXml(String jobName) throws IOException {
         return client.get("/job/" + encode(jobName) + "/config.xml");
     }
@@ -187,6 +196,7 @@ public class JenkinsServer {
      * @return label object
      * @throws IOException
      */
+    @Override
     public LabelWithDetails getLabel(String labelName) throws IOException {
         return client.get("/label/" + encode(labelName), LabelWithDetails.class);
     }
@@ -198,6 +208,7 @@ public class JenkinsServer {
      * @return list of defined computers (summary level, for details @see Computer#details
      * @throws IOException
      */
+    @Override
     public Map<String, Computer> getComputers() throws IOException {
         List<Computer> computers = client.get("computer/", Computer.class).getComputers();
         return Maps.uniqueIndex(computers, new Function<Computer, String>() {
@@ -215,14 +226,17 @@ public class JenkinsServer {
      * @return the new job object
      * @throws IOException
      */
+    @Override
     public void updateJob(String jobName, String jobXml) throws IOException {
         this.updateJob(jobName, jobXml, true);
     }
 
+    @Override
     public void updateJob(String jobName, String jobXml, boolean crumbFlag) throws IOException {
         client.post_xml("/job/" + encode(jobName) + "/config.xml", jobXml, crumbFlag);
     }
 
+    @Override
     public void addStringParam(String jobName, String name, String description, String defaultValue) throws IOException, JAXBException, DocumentException {
         String jobXml = this.getJobXml(jobName);
         JobConfiguration jobConf = new JobConfiguration(jobXml);
@@ -235,6 +249,7 @@ public class JenkinsServer {
      *
      * @throws IOException
      */
+    @Override
     public void deleteJob(String jobName) throws IOException {
         client.post("/job/" + encode(jobName) + "/doDelete");
     }
