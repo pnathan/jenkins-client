@@ -11,17 +11,23 @@ import com.offbytwo.jenkins.client.util.HttpResponseContentExtractor;
 import com.offbytwo.jenkins.client.validator.HttpResponseValidator;
 import com.offbytwo.jenkins.model.BaseModel;
 import com.offbytwo.jenkins.model.Crumb;
+import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
+import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpRequestBase;
+import org.apache.http.conn.routing.HttpRoute;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.auth.BasicScheme;
+import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.message.BasicHeader;
 import org.apache.http.protocol.BasicHttpContext;
 import org.apache.http.util.EntityUtils;
@@ -36,7 +42,7 @@ import static org.apache.commons.lang.StringUtils.isNotBlank;
 public class JenkinsHttpClient {
 
     private URI uri;
-    private DefaultHttpClient client;
+    private CloseableHttpClient client;
     private BasicHttpContext localContext;
     private HttpResponseValidator httpResponseValidator;
     private HttpResponseContentExtractor contentExtractor;
@@ -48,16 +54,16 @@ public class JenkinsHttpClient {
      * Create an unauthenticated Jenkins HTTP client
      *
      * @param uri               Location of the jenkins server (ex. http://localhost:8080)
-     * @param defaultHttpClient Configured DefaultHttpClient to be used
+     * @param httpClient Configured DefaultHttpClient to be used
      */
-    public JenkinsHttpClient(URI uri, DefaultHttpClient defaultHttpClient) {
+    public JenkinsHttpClient(URI uri, CloseableHttpClient httpClient) {
         this.context = uri.getPath();
         if (!context.endsWith("/")) {
             context += "/";
         }
         this.uri = uri;
         this.mapper = getDefaultMapper();
-        this.client = defaultHttpClient;
+        this.client = httpClient;
         this.httpResponseValidator = new HttpResponseValidator();
         this.contentExtractor = new HttpResponseContentExtractor();
     }
@@ -68,7 +74,7 @@ public class JenkinsHttpClient {
      * @param uri Location of the jenkins server (ex. http://localhost:8080)
      */
     public JenkinsHttpClient(URI uri) {
-        this(uri, new DefaultHttpClient());
+        this(uri, buildConnectionPool());
     }
 
     /**
@@ -80,6 +86,7 @@ public class JenkinsHttpClient {
      */
     public JenkinsHttpClient(URI uri, String username, String password) {
         this(uri);
+
         if (isNotBlank(username)) {
             CredentialsProvider provider = client.getCredentialsProvider();
             AuthScope scope = new AuthScope(uri.getHost(), uri.getPort(), "realm");
@@ -90,6 +97,25 @@ public class JenkinsHttpClient {
             localContext.setAttribute("preemptive-auth", new BasicScheme());
             client.addRequestInterceptor(new PreemptiveAuth(), 0);
         }
+    }
+
+    private static CloseableHttpClient buildConnectionPool() {
+        PoolingHttpClientConnectionManager cm = new PoolingHttpClientConnectionManager();
+        // Increase max total connection to 200
+        cm.setMaxTotal(200);
+        // Increase default max connection per route to 20
+        cm.setDefaultMaxPerRoute(20);
+        /*
+        // Increase max connections for localhost:80 to 50
+        HttpHost localhost = new HttpHost("locahost", 80);
+        cm.setMaxPerRoute(new HttpRoute(localhost), 50);
+        */
+
+        CloseableHttpClient httpClient = HttpClients.custom()
+                .setConnectionManager(cm)
+                .build();
+
+        return httpClient;
     }
 
     /**
